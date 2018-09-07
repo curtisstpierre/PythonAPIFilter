@@ -1,11 +1,78 @@
 #!/usr/bin/env python
-from flask import Flask
+import re
+from datetime import datetime, timedelta
 
-app = Flask(__name__)
+import flask
+from flask import abort, jsonify, request
 
-@app.route('/')
-def index():
-    return "Hello, World!"
+app = flask.Flask(__name__)
+app.config["DEBUG"] = True
 
-if __name__ == '__main__':
-    app.run(debug=True)
+# Create some test data for our catalog in the form of a list of dictionaries.
+silences = [
+    {
+        'silence': "qu*x",
+        'expiry': datetime.now() + timedelta(minutes=10)
+    },
+    {
+        'silence': "bar.*",
+        'expiry': datetime.now() + timedelta(minutes=10)
+    },
+    {
+        'silence': "foo.*",
+        'expiry': datetime.now() + timedelta(minutes=10)
+    }
+]
+
+
+def cleanup_expired_silences():
+    global silences
+    # silences = list(filter(lambda silence: silence.get('expiry') > datetime.now(), silences))
+    silences = [s for s in silences if s.get('expiry') > datetime.now()]
+
+
+@app.route('/', methods=['GET'])
+def home():
+    page_content = '''<h1>This is your magical home for create silences</h1>
+    <p>Create a silence here for your alerts</p><ul>'''
+
+    for silence in silences:
+        page_content += f"<li>{silence.get('silence')} - {silence.get('expiry')}</li>"
+
+    page_content += '</ul>'
+
+    return page_content
+
+
+@app.route('/api/v1/resources/alerts', methods=['POST'])
+def api_id():
+    if not request.json or 'alert' not in request.json:
+        abort(400)
+
+    cleanup_expired_silences()
+    combined = "(" + ")|(".join(silences) + ")"
+
+    if re.match(combined, request.json.get('alert', "")):
+        return jsonify({'silenced': True})
+    else:
+        return jsonify({'silenced': False})
+
+
+@app.route('/api/v1/resources/silence', methods=['POST'])
+def api_silence():
+    if not request.json or 'silence' not in request.json or 'expiry' not in request.json:
+        abort(400)
+    silence = {
+        'silence': request.json.get('silence', ""),
+        'expiry': datetime.now() + timedelta(minutes=int(request.json.get('expiry', 0)))
+    }
+    silences.append(silence)
+    return jsonify({'silence': silence}), 201
+
+
+@app.route('/api/v1/resources/alerts/all', methods=['GET'])
+def api_silence_all():
+    return jsonify(silences)
+
+
+app.run(host="0.0.0.0")
