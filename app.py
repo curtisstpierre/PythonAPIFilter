@@ -26,6 +26,7 @@ silences = [
 
 
 def cleanup_expired_silences():
+    '''modify the global silences dictionary to remove any silences that have expired'''
     global silences
     # silences = list(filter(lambda silence: silence.get('expiry') > datetime.now(), silences))
     silences = [s for s in silences if s.get('expiry') > datetime.now()]
@@ -33,6 +34,7 @@ def cleanup_expired_silences():
 
 @app.route('/', methods=['GET'])
 def home():
+    '''home page contains the current silence regex list and their expiry times'''
     page_content = '''<h1>This is your magical home for create silences</h1>
     <p>Create a silence here for your alerts</p><ul>'''
 
@@ -45,7 +47,8 @@ def home():
 
 
 @app.route('/api/v1/resources/alerts', methods=['POST'])
-def api_id():
+def api_alert():
+    '''the api enpoint hit to determine if an alert should be filtered or not based on the current list of silences'''
     if not request.json or 'alert' not in request.json:
         abort(400)
 
@@ -60,6 +63,7 @@ def api_id():
 
 @app.route('/api/v1/resources/silence', methods=['POST'])
 def api_silence():
+    '''api endpoint used to set a new silence'''
     if not request.json or 'silence' not in request.json or 'expiry' not in request.json:
         abort(400)
     silence = {
@@ -72,6 +76,7 @@ def api_silence():
 
 @app.route('/api/v1/resources/alerts/all', methods=['GET'])
 def api_silence_all():
+    '''api endpoint used to list current silences'''
     return jsonify(silences)
 
 
